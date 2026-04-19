@@ -35,6 +35,6 @@ streamlit run app.py
 
 | Module | Preview 1 | Preview 2 | Preview 3 |
 | :--- | :---: | :---: | :---: |
-| **Farmer Dashboard** <br>*(Manage batches & dynamic pricing)* | Screenshot 1 <br> `<img src="..." width="200">` | Screenshot 2 <br> `<img src="..." width="200">` | Screenshot 3 <br> `<img src="..." width="200">` |
-| **Consumer Marketplace** <br>*(Community cart & Weekly box)* | Screenshot 4 <br> `<img src="..." width="200">` | Screenshot 5 <br> `<img src="..." width="200">` | Screenshot 6 <br> `<img src="..." width="200">` |
-| **Admin Oversight** <br>*(Analytics & Verification)* | Screenshot 7 <br> `<img src="..." width="200">` | Screenshot 8 <br> `<img src="..." width="200">` | Screenshot 9 <br> `<img src="..." width="200">` |
+| **Farmer Dashboard** <br>*(Manage batches & dynamic pricing)* | <img src="streamlit_app/assets/farmer_dash1.png" width="250"> | <img src="streamlit_app/assets/farmer_dash2.png" width="250"> | <img src="streamlit_app/assets/farmer_dash3.png" width="250"> |
+| **Consumer View** <br>*(Community cart & Weekly box)* | <img src="streamlit_app/assets/consumer_dash1.png" width="250"> | <img src="streamlit_app/assets/consumer_dash2.png" width="250"> | <img src="streamlit_app/assets/consumer_dash3.png" width="250"> |
+| **System & Admin** <br>*(Analytics & Oversight)* | <img src="streamlit_app/assets/admin_dash1.png" width="250"> | <img src="streamlit_app/assets/admin_dash2.png" width="250"> | <img src="streamlit_app/assets/mainpage.png" width="250"> |
