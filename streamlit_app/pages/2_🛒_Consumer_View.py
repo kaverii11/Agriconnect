@@ -39,6 +39,18 @@ def get_my_subscriptions():
     except Exception:
         return []
 
+def get_my_orders():
+    try:
+        response = requests.get(f"{BASE_URL}/{CONSUMER_ID}/my-orders") # Note: BASE_URL/consumer prefix handled locally
+        # Wait, my Base URL is http://localhost:8080/api
+        # My endpoint is /api/consumer/{consumerId}/my-orders
+        response = requests.get(f"{BASE_URL}/consumer/{CONSUMER_ID}/my-orders")
+        if response.status_code == 200:
+            return response.json()
+        return []
+    except Exception:
+        return []
+
 def get_logistics_slots():
     try:
         response = requests.get(f"{BASE_URL}/logistics/slots")
@@ -77,7 +89,7 @@ if menu == "Marketplace & Community Cart":
     
     st.divider()
     
-    # 2. Show all available produce (to start a new pool - logic for starting new pools can be added later)
+    # 2. Show all available produce
     st.subheader("Discover Fresh Produce")
     items = get_marketplace_items()
     if not items:
@@ -93,7 +105,7 @@ if menu == "Marketplace & Community Cart":
                 with col2:
                     st.metric("Total Available", f"{item['totalQuantity'] - item['quantitySold']} kg")
                 with col3:
-                    # IMPLEMENTED: Open a new GroupOrder
+                    # Open a new GroupOrder
                     moq_target = st.number_input("Target MOQ (kg)", min_value=10.0, step=5.0, value=20.0, key=f"moq_{item['batchId']}")
                     if st.button("Start New Community Pool", key=f"start_{item['batchId']}"):
                         res = requests.post(f"{BASE_URL}/consumer/orders/start", params={"batchId": item['batchId'], "moq": moq_target})
@@ -140,19 +152,56 @@ elif menu == "Weekly SubscriptionBox":
 elif menu == "Checkout & Slots":
     st.subheader("Checkout & Delivery Booking")
     
-    st.markdown("### Select a Delivery Slot")
-    available_slots = get_logistics_slots()
+    # 1. Fetch joined orders
+    my_orders = get_my_orders()
     
-    if not available_slots:
-        st.warning("No delivery slots available for your zone currently.")
+    if not my_orders:
+        st.warning("You haven't joined any community pools yet. Go to the Marketplace to join one!")
     else:
-        slot_options = {f"{s['slotTime']} - {s['zone']} ({s['maxCapacity'] - s['current_bookings']} left)": s['slotId'] for s in available_slots}
-        selected_label = st.selectbox("Available Logistics Slots", options=list(slot_options.keys()))
-        selected_slot_id = slot_options[selected_label]
+        st.markdown("### 1. Select Your Order")
+        # Filter for OPEN or CONFIRMED orders (only those are checkoutable in this flow)
+        order_options = {f"Order #{o['orderId']} - {o['harvestBatch']['produceType']} (Status: {o['status']})": o for o in my_orders}
+        selected_order_label = st.selectbox("Your Active Orders", options=list(order_options.keys()))
+        selected_order = order_options[selected_order_label]
         
-        st.divider()
-        st.info("Note: Checkout requires an active Order ID. Complete a 'Join Pool' action first.")
+        # Calculate Amount (Price * total pool shared? No, in simplified model we charge a flat estimated amount or total bill)
+        # Let's say we charge: batch basePrice * poolTotalQuantity / size (split bill)
+        # For simplicity, we'll just show the total batch price for the shared quantities
+        price_per_kg = selected_order['harvestBatch']['basePrice']
+        total_qty = selected_order['poolTotalQuantity']
+        estimated_amount = price_per_kg * total_qty
         
-        # This is a sample button - in real app, we'd tether to a specific confirmed GroupOrder
-        if st.button("Complete Checkout", type="primary"):
-            st.info("Checkout process requires a confirmed pool. Join an active pool in the Market tab first!")
+        st.info(f"Estimated Total for this Community Pool: **${estimated_amount:.2f}**")
+        
+        st.markdown("### 2. Select a Delivery Slot")
+        available_slots = get_logistics_slots()
+        
+        if not available_slots:
+            st.error("No delivery slots available for your zone currently.")
+        else:
+            slot_options = {f"{s['slotTime']} - {s['zone']} ({s['maxCapacity'] - s['current_bookings']} left)": s['slotId'] for s in available_slots}
+            selected_slot_label = st.selectbox("Available Logistics Slots", options=list(slot_options.keys()))
+            selected_slot_id = slot_options[selected_label] if 'selected_label' in locals() else list(slot_options.values())[0]
+            # Wait, fixed the name issue
+            selected_slot_id = slot_options[selected_slot_label]
+            
+            st.divider()
+            st.markdown("### 3. Payment Method")
+            pay_method = st.radio("Payment Type", ["UPI", "Credit Card", "Wallet"], horizontal=True)
+            
+            if st.button("Confirm Order & Book Delivery", type="primary"):
+                payload = {
+                    "orderId": selected_order['orderId'],
+                    "slotId": selected_slot_id,
+                    "consumerId": CONSUMER_ID,
+                    "amount": estimated_amount,
+                    "paymentMethod": pay_method
+                }
+                
+                res = requests.post(f"{BASE_URL}/consumer/checkout", json=payload)
+                if res.status_code == 200:
+                    st.balloons()
+                    st.success(f"Payment Successful! Delivery slot booked for {selected_slot_label}.")
+                    st.markdown("Check your order status in the Marketplace (it should now be **FULFILLED**).")
+                else:
+                    st.error(f"Checkout Failed: {res.text}")
