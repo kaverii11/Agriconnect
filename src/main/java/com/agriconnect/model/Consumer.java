@@ -1,5 +1,6 @@
 package com.agriconnect.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -37,9 +38,11 @@ public class Consumer extends User {
      * and a GroupOrder can have many Consumers.
      * Managed via join table "consumer_group_orders".
      */
+    @JsonIgnore
     @ManyToMany(mappedBy = "participants")
     private List<GroupOrder> groupOrders = new ArrayList<>();
 
+    @JsonIgnore
     @OneToMany(mappedBy = "consumer", cascade = CascadeType.ALL)
     private List<SubscriptionBox> subscriptions = new ArrayList<>();
 

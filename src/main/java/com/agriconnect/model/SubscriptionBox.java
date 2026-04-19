@@ -1,5 +1,6 @@
 package com.agriconnect.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -48,6 +49,7 @@ public abstract class SubscriptionBox {
     @Column(name = "price_per_cycle")
     private Double pricePerCycle;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "consumer_id")
     private Consumer consumer;

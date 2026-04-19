@@ -1,5 +1,6 @@
 package com.agriconnect.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -65,6 +66,7 @@ public class GroupOrder {
     // -------------------------------------------------------
 
     /** Many GroupOrders can reference the same HarvestBatch. */
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "batch_id", nullable = false)
     private HarvestBatch harvestBatch;
@@ -73,6 +75,7 @@ public class GroupOrder {
      * Many Consumers can join Many GroupOrders.
      * JPA manages a join table: consumer_group_orders.
      */
+    @JsonIgnore
     @ManyToMany
     @JoinTable(
         name = "consumer_group_orders",
@@ -86,6 +89,7 @@ public class GroupOrder {
      * (one per participating consumer once MOQ is confirmed).
      * SRP: PaymentTransaction is a SEPARATE entity, not embedded here.
      */
+    @JsonIgnore
     @OneToMany(mappedBy = "groupOrder", cascade = CascadeType.ALL)
     private List<PaymentTransaction> transactions = new ArrayList<>();
 

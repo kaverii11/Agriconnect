@@ -1,0 +1,24 @@
+# Java
+target/
+*.class
+
+# Streamlit
+.streamlit/
+scripts/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.venv/
+env/
+venv/
+venv.bak/
+
+# IDE
+.idea/
+.vscode/
+*.iml
