@@ -5,6 +5,8 @@ import com.agriconnect.model.PaymentTransaction;
 import com.agriconnect.pattern.facade.CheckoutFacade;
 import com.agriconnect.service.GroupBuyingService;
 import com.agriconnect.service.LogisticsService;
+import com.agriconnect.repository.ConsumerRepository;
+import com.agriconnect.model.Consumer;
 import lombok.Data;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -35,13 +37,16 @@ public class ConsumerOrderController {
     private final GroupBuyingService groupBuyingService;
     private final CheckoutFacade checkoutFacade;
     private final LogisticsService logisticsService;
+    private final ConsumerRepository consumerRepository;
 
     public ConsumerOrderController(GroupBuyingService groupBuyingService,
                                    CheckoutFacade checkoutFacade,
-                                   LogisticsService logisticsService) {
+                                   LogisticsService logisticsService,
+                                   ConsumerRepository consumerRepository) {
         this.groupBuyingService = groupBuyingService;
         this.checkoutFacade = checkoutFacade;
         this.logisticsService = logisticsService;
+        this.consumerRepository = consumerRepository;
     }
 
     /**
@@ -67,17 +72,29 @@ public class ConsumerOrderController {
     }
 
     /**
+     * List all orders a consumer has joined.
+     */
+    @GetMapping("/{consumerId}/my-orders")
+    public ResponseEntity<java.util.List<GroupOrder>> listMyOrders(@PathVariable Long consumerId) {
+        return ResponseEntity.ok(groupBuyingService.getOrdersByConsumer(consumerId));
+    }
+
+    /**
      * MODULE 3: Integrated Checkout via Facade
      * Demonstrates the Structural Facade Pattern.
      * The controller is shielded from the complex multi-step process.
      */
     @PostMapping("/checkout")
     public ResponseEntity<PaymentTransaction> fullCheckout(@RequestBody CheckoutRequest request) {
-        // Here we use the Facade! One call, many actions.
+        // Load the real Consumer entity from the database
+        Consumer consumer = consumerRepository.findById(request.getConsumerId())
+                .orElseThrow(() -> new IllegalArgumentException("Consumer not found: " + request.getConsumerId()));
+
+        // Call the Facade with the real consumer object
         PaymentTransaction tx = checkoutFacade.processCheckout(
                 request.getOrderId(),
                 request.getSlotId(),
-                null, // In a real app, load Consumer from context
+                consumer,
                 request.getAmount(),
                 request.getPaymentMethod()
         );
@@ -100,6 +117,7 @@ public class ConsumerOrderController {
     static class CheckoutRequest {
         private Long orderId;
         private Long slotId;
+        private Long consumerId;
         private BigDecimal amount;
         private String paymentMethod;
     }
