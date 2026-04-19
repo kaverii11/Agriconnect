@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import datetime
+import requests
 
 st.set_page_config(page_title="Farmer Dashboard", page_icon="🌾", layout="wide")
 
@@ -76,8 +77,22 @@ elif view_selection == "Add Harvest Batch":
         submitted = st.form_submit_button("Submit Batch")
         if submitted:
             if produce_type:
-                # Mock POST request
-                st.success(f"Batch for {qty}kg of {produce_type} added successfully! (Mock POST)")
-                st.info("In production, this translates to: `requests.post('/api/farmers/batches', json={...})`")
+                # DATA TO SEND
+                payload = {
+                    "produceType": produce_type,
+                    "totalQuantity": qty,
+                    "basePrice": base_price,
+                    "harvestDate": str(harvest_date)
+                }
+                
+                # REAL API CALL (Farmer ID 2 is John Doe)
+                try:
+                    response = requests.post("http://localhost:8080/api/farmer/2/batches", json=payload)
+                    if response.status_code == 200:
+                        st.success(f"SUCCESS! {produce_type} saved to MySQL via Java Backend.")
+                    else:
+                        st.error(f"FAILED! Error {response.status_code}: {response.text}")
+                except Exception as e:
+                    st.error(f"Connection Error: {e}")
             else:
                 st.error("Please enter a produce type.")

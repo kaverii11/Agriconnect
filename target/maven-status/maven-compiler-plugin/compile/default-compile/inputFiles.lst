@@ -4,6 +4,7 @@
 /Users/kaverisharma/ooad_agriconnect/src/main/java/com/agriconnect/pattern/facade/IConsumerDeliveryService.java
 /Users/kaverisharma/ooad_agriconnect/src/main/java/com/agriconnect/pattern/observer/FarmerConfirmationObserver.java
 /Users/kaverisharma/ooad_agriconnect/src/main/java/com/agriconnect/repository/GroupOrderRepository.java
+/Users/kaverisharma/ooad_agriconnect/src/main/java/com/agriconnect/controller/MarketplaceController.java
 /Users/kaverisharma/ooad_agriconnect/src/main/java/com/agriconnect/repository/HarvestBatchRepository.java
 /Users/kaverisharma/ooad_agriconnect/src/main/java/com/agriconnect/repository/PaymentTransactionRepository.java
 /Users/kaverisharma/ooad_agriconnect/src/main/java/com/agriconnect/model/Administrator.java
@@ -21,6 +22,7 @@
 /Users/kaverisharma/ooad_agriconnect/src/main/java/com/agriconnect/pattern/observer/ConsumerNotificationObserver.java
 /Users/kaverisharma/ooad_agriconnect/src/main/java/com/agriconnect/model/VeggieBox.java
 /Users/kaverisharma/ooad_agriconnect/src/main/java/com/agriconnect/repository/SubscriptionBoxRepository.java
+/Users/kaverisharma/ooad_agriconnect/src/main/java/com/agriconnect/controller/LogisticsController.java
 /Users/kaverisharma/ooad_agriconnect/src/main/java/com/agriconnect/model/FruitBox.java
 /Users/kaverisharma/ooad_agriconnect/src/main/java/com/agriconnect/pattern/dip/INotificationService.java
 /Users/kaverisharma/ooad_agriconnect/src/main/java/com/agriconnect/pattern/factory/AgriBoxFactory.java

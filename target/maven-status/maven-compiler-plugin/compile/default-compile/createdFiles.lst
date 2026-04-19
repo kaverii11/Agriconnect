@@ -11,6 +11,7 @@ com/agriconnect/service/LogisticsService.class
 com/agriconnect/model/SubscriptionBox.class
 com/agriconnect/AgriConnectApplication.class
 com/agriconnect/pattern/observer/GroupOrderSubject.class
+com/agriconnect/controller/LogisticsController.class
 com/agriconnect/controller/ConsumerOrderController$CheckoutRequest.class
 com/agriconnect/service/GroupBuyingService.class
 com/agriconnect/model/LogisticsCoordinator.class
@@ -43,6 +44,7 @@ com/agriconnect/model/GroupOrder$OrderStatus.class
 com/agriconnect/repository/DeliverySlotRepository.class
 com/agriconnect/model/Consumer.class
 com/agriconnect/pattern/facade/CheckoutFacade.class
+com/agriconnect/controller/MarketplaceController.class
 com/agriconnect/pattern/strategy/ExpiryUrgencyStrategy.class
 com/agriconnect/pattern/observer/OrderObserver.class
 com/agriconnect/repository/HarvestBatchRepository.class

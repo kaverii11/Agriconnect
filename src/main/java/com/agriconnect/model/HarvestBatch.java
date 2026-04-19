@@ -1,5 +1,6 @@
 package com.agriconnect.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
@@ -66,6 +67,7 @@ public class HarvestBatch {
      * JPA: @ManyToOne — Many batches belong to one Farmer.
      * @JoinColumn defines the FK column in the harvest_batches table.
      */
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "farmer_id", nullable = false)
     private Farmer farmer;
@@ -73,6 +75,7 @@ public class HarvestBatch {
     /**
      * JPA: @OneToMany — One batch can be part of many group orders.
      */
+    @JsonIgnore
     @OneToMany(mappedBy = "harvestBatch", cascade = CascadeType.ALL)
     private List<GroupOrder> groupOrders = new ArrayList<>();
 

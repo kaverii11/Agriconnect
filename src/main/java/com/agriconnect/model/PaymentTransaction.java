@@ -1,5 +1,6 @@
 package com.agriconnect.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -51,11 +52,13 @@ public class PaymentTransaction {
      * SRP: Payment knows which order it belongs to,
      *      but GroupOrder does NOT handle payment logic.
      */
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
     private GroupOrder groupOrder;
 
     /** Who paid — the specific consumer. */
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "consumer_id")
     private Consumer consumer;

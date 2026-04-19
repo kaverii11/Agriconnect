@@ -1,5 +1,6 @@
 package com.agriconnect.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -57,6 +58,7 @@ public class DeliverySlot {
     /**
      * JPA: @ManyToOne — Each slot is managed by one coordinator.
      */
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "coordinator_id")
     private LogisticsCoordinator coordinator;

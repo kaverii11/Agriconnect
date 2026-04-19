@@ -1,5 +1,6 @@
 package com.agriconnect.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -36,6 +37,7 @@ public class Farmer extends User {
      * JPA: Bidirectional @OneToMany. CascadeType.ALL ensures that
      * when a Farmer is persisted, their batches are too.
      */
+    @JsonIgnore
     @OneToMany(mappedBy = "farmer", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<HarvestBatch> harvestBatches = new ArrayList<>();
 

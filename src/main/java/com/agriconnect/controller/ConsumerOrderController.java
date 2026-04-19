@@ -57,6 +57,16 @@ public class ConsumerOrderController {
     }
 
     /**
+     * Start a NEW community pool for a specific batch.
+     */
+    @PostMapping("/orders/start")
+    public ResponseEntity<GroupOrder> startNewPool(@RequestParam Long batchId,
+                                                   @RequestParam double moq) {
+        GroupOrder newOrder = groupBuyingService.openGroupOrder(batchId, moq);
+        return ResponseEntity.ok(newOrder);
+    }
+
+    /**
      * MODULE 3: Integrated Checkout via Facade
      * Demonstrates the Structural Facade Pattern.
      * The controller is shielded from the complex multi-step process.
