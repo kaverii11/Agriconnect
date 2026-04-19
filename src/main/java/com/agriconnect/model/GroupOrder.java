@@ -66,8 +66,7 @@ public class GroupOrder {
     // -------------------------------------------------------
 
     /** Many GroupOrders can reference the same HarvestBatch. */
-    @JsonIgnore
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "batch_id", nullable = false)
     private HarvestBatch harvestBatch;
 
