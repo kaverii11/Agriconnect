@@ -12,6 +12,9 @@ public interface DeliverySlotRepository extends JpaRepository<DeliverySlot, Long
     /** Find all OPEN slots in a specific delivery zone. */
     List<DeliverySlot> findByZoneAndSlotStatus(String zone, DeliverySlot.SlotStatus status);
 
+    /** Find all slots with a given status (e.g. all OPEN slots). */
+    List<DeliverySlot> findBySlotStatus(DeliverySlot.SlotStatus status);
+
     /** All slots managed by a specific coordinator. */
     List<DeliverySlot> findByCoordinator_UserId(Long coordinatorId);
 }

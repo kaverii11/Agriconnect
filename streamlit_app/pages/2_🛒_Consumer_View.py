@@ -9,7 +9,18 @@ st.markdown("Browse fresh produce, join community group orders, and manage subsc
 
 # --- Constants ---
 BASE_URL = "http://localhost:8080/api"
-CONSUMER_ID = 4  # Alice Consumer from data.sql
+
+# --- Consumer Profile Selector ---
+CONSUMERS = {
+    "Alice Consumer (ID 4)": {"id": 4, "name": "Alice"},
+    "Bob Brown (ID 5)": {"id": 5, "name": "Bob"},
+    "Charlie Clark (ID 6)": {"id": 6, "name": "Charlie"}
+}
+selected_consumer_label = st.sidebar.selectbox("Select Consumer Profile", list(CONSUMERS.keys()))
+CONSUMER_ID = CONSUMERS[selected_consumer_label]["id"]
+consumer_name = CONSUMERS[selected_consumer_label]["name"]
+
+st.sidebar.header(f"Welcome, {consumer_name}!")
 
 # --- API Helper Functions ---
 def get_marketplace_items():
@@ -41,9 +52,6 @@ def get_my_subscriptions():
 
 def get_my_orders():
     try:
-        response = requests.get(f"{BASE_URL}/{CONSUMER_ID}/my-orders") # Note: BASE_URL/consumer prefix handled locally
-        # Wait, my Base URL is http://localhost:8080/api
-        # My endpoint is /api/consumer/{consumerId}/my-orders
         response = requests.get(f"{BASE_URL}/consumer/{CONSUMER_ID}/my-orders")
         if response.status_code == 200:
             return response.json()
@@ -60,8 +68,7 @@ def get_logistics_slots():
     except Exception:
         return []
 
-# --- Sidebar ---
-st.sidebar.header("Welcome, Alice!")
+# --- Navigation ---
 menu = st.sidebar.radio("Navigation", ["Marketplace & Community Cart", "Weekly SubscriptionBox", "Checkout & Slots"])
 
 if menu == "Marketplace & Community Cart":
@@ -70,26 +77,37 @@ if menu == "Marketplace & Community Cart":
     # 1. Show existing active pools to join
     pools = get_active_pools()
     if pools:
-        st.info("Found active Community Carts! Join one to help hit the MOQ threshold.")
+        st.info(f"🎉 Found **{len(pools)}** active Community Pool(s)! Join one to help hit the MOQ threshold.")
         for pool in pools:
             batch = pool.get('harvestBatch', {})
-            with st.expander(f"🛒 Join Pool: {batch.get('produceType')} (ID #{pool.get('orderId')})"):
+            produce_name = batch.get('produceType', 'Unknown Produce')
+            pool_id = pool.get('orderId', '?')
+            target = pool.get('targetMinimumOrder', 1)
+            current = pool.get('poolTotalQuantity', 0)
+            progress = current / target if target > 0 else 0
+            
+            with st.expander(f"🛒 Pool #{pool_id}: {produce_name} — {current:.0f}/{target:.0f} kg ({progress*100:.0f}% filled)"):
                 col1, col2 = st.columns([3, 1])
                 with col1:
-                    st.write(f"**Target MOQ:** {pool.get('targetMinimumOrder')} kg | **Current Pool:** {pool.get('poolTotalQuantity')} kg")
-                    progress = pool.get('poolTotalQuantity', 0) / pool.get('targetMinimumOrder', 1)
+                    st.write(f"**Target MOQ:** {target} kg | **Current Pool:** {current} kg")
                     st.progress(min(progress, 1.0))
+                    if batch:
+                        st.caption(f"Price: ${batch.get('basePrice', 0):.2f}/kg | Batch #{batch.get('batchId', '?')}")
                 with col2:
-                    qty = st.number_input("Qty (kg)", min_value=1.0, step=1.0, key=f"pool_qty_{pool.get('orderId')}")
-                    if st.button("Join Pool", key=f"pool_btn_{pool.get('orderId')}"):
-                        res = requests.post(f"{BASE_URL}/consumer/{CONSUMER_ID}/orders/{pool.get('orderId')}/join", params={"quantity": qty})
+                    qty = st.number_input("Qty (kg)", min_value=1.0, step=1.0, key=f"pool_qty_{pool_id}")
+                    if st.button("Join Pool", key=f"pool_btn_{pool_id}"):
+                        res = requests.post(f"{BASE_URL}/consumer/{CONSUMER_ID}/orders/{pool_id}/join", params={"quantity": qty})
                         if res.status_code == 200:
                             st.success("Successfully joined the pool!")
                             st.rerun()
+                        else:
+                            st.error(f"Failed to join: {res.text}")
+    else:
+        st.info("No active community pools right now. Start one from the produce list below!")
     
     st.divider()
     
-    # 2. Show all available produce
+    # 2. Show all available produce (to start a new pool)
     st.subheader("Discover Fresh Produce")
     items = get_marketplace_items()
     if not items:
@@ -105,7 +123,6 @@ if menu == "Marketplace & Community Cart":
                 with col2:
                     st.metric("Total Available", f"{item['totalQuantity'] - item['quantitySold']} kg")
                 with col3:
-                    # Open a new GroupOrder
                     moq_target = st.number_input("Target MOQ (kg)", min_value=10.0, step=5.0, value=20.0, key=f"moq_{item['batchId']}")
                     if st.button("Start New Community Pool", key=f"start_{item['batchId']}"):
                         res = requests.post(f"{BASE_URL}/consumer/orders/start", params={"batchId": item['batchId'], "moq": moq_target})
@@ -135,11 +152,15 @@ elif menu == "Weekly SubscriptionBox":
                 if res.status_code == 200:
                     st.success("Subscription created successfully!")
                     st.rerun()
+                else:
+                    st.error(f"Failed to create subscription: {res.text}")
     
     elif status and active_sub:
-        st.success(f"Your {active_sub.get('boxType')} subscription is ACTIVE.")
+        st.success(f"Your **{active_sub.get('boxType')}** subscription is ACTIVE.")
         st.write(f"**Frequency:** {active_sub.get('frequency')}")
-        st.write(f"**Preferences:** {active_sub.get('veggiePreference') or active_sub.get('fruitPreference')}")
+        st.write(f"**Price per cycle:** ${active_sub.get('pricPerCycle', active_sub.get('priceCycle', 0))}")
+        pref = active_sub.get('veggiePreference') or active_sub.get('fruitPreference') or 'None set'
+        st.write(f"**Preferences:** {pref}")
         
         if st.button("Cancel Subscription", type="secondary"):
             res = requests.delete(f"{BASE_URL}/subscription/{active_sub.get('subscriptionId')}")
@@ -159,16 +180,20 @@ elif menu == "Checkout & Slots":
         st.warning("You haven't joined any community pools yet. Go to the Marketplace to join one!")
     else:
         st.markdown("### 1. Select Your Order")
-        # Filter for OPEN or CONFIRMED orders (only those are checkoutable in this flow)
-        order_options = {f"Order #{o['orderId']} - {o['harvestBatch']['produceType']} (Status: {o['status']})": o for o in my_orders}
+        order_options = {}
+        for o in my_orders:
+            batch = o.get('harvestBatch', {})
+            produce_name = batch.get('produceType', 'Unknown') if batch else 'Unknown'
+            label = f"Order #{o['orderId']} - {produce_name} (Status: {o['status']})"
+            order_options[label] = o
+        
         selected_order_label = st.selectbox("Your Active Orders", options=list(order_options.keys()))
         selected_order = order_options[selected_order_label]
         
-        # Calculate Amount (Price * total pool shared? No, in simplified model we charge a flat estimated amount or total bill)
-        # Let's say we charge: batch basePrice * poolTotalQuantity / size (split bill)
-        # For simplicity, we'll just show the total batch price for the shared quantities
-        price_per_kg = selected_order['harvestBatch']['basePrice']
-        total_qty = selected_order['poolTotalQuantity']
+        # Calculate Amount
+        batch = selected_order.get('harvestBatch', {})
+        price_per_kg = batch.get('basePrice', 0) if batch else 0
+        total_qty = selected_order.get('poolTotalQuantity', 0)
         estimated_amount = price_per_kg * total_qty
         
         st.info(f"Estimated Total for this Community Pool: **${estimated_amount:.2f}**")
@@ -177,12 +202,15 @@ elif menu == "Checkout & Slots":
         available_slots = get_logistics_slots()
         
         if not available_slots:
-            st.error("No delivery slots available for your zone currently.")
+            st.error("No delivery slots available currently.")
         else:
-            slot_options = {f"{s['slotTime']} - {s['zone']} ({s['maxCapacity'] - s['current_bookings']} left)": s['slotId'] for s in available_slots}
+            slot_options = {}
+            for s in available_slots:
+                remaining = s['maxCapacity'] - s.get('currentBookings', s.get('current_bookings', 0))
+                label = f"{s['slotTime']} - {s['zone']} ({remaining} spots left)"
+                slot_options[label] = s['slotId']
+            
             selected_slot_label = st.selectbox("Available Logistics Slots", options=list(slot_options.keys()))
-            selected_slot_id = slot_options[selected_label] if 'selected_label' in locals() else list(slot_options.values())[0]
-            # Wait, fixed the name issue
             selected_slot_id = slot_options[selected_slot_label]
             
             st.divider()
@@ -201,7 +229,7 @@ elif menu == "Checkout & Slots":
                 res = requests.post(f"{BASE_URL}/consumer/checkout", json=payload)
                 if res.status_code == 200:
                     st.balloons()
-                    st.success(f"Payment Successful! Delivery slot booked for {selected_slot_label}.")
+                    st.success(f"Payment Successful! Delivery slot booked.")
                     st.markdown("Check your order status in the Marketplace (it should now be **FULFILLED**).")
                 else:
                     st.error(f"Checkout Failed: {res.text}")

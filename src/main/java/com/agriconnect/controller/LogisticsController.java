@@ -1,6 +1,7 @@
 package com.agriconnect.controller;
 
 import com.agriconnect.model.DeliverySlot;
+import com.agriconnect.repository.DeliverySlotRepository;
 import com.agriconnect.service.LogisticsService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,21 +20,21 @@ import java.util.List;
 public class LogisticsController {
 
     private final LogisticsService logisticsService;
+    private final DeliverySlotRepository deliverySlotRepository;
 
-    public LogisticsController(LogisticsService logisticsService) {
+    public LogisticsController(LogisticsService logisticsService,
+                               DeliverySlotRepository deliverySlotRepository) {
         this.logisticsService = logisticsService;
+        this.deliverySlotRepository = deliverySlotRepository;
     }
 
     /**
-     * List all open delivery slots for a zone.
-     * Default to 'ALL' if no zone provided.
+     * List all open delivery slots. If zone=ALL (default), return every open slot.
      */
     @GetMapping("/slots")
     public ResponseEntity<List<DeliverySlot>> listSlots(@RequestParam(required = false, defaultValue = "ALL") String zone) {
         if ("ALL".equalsIgnoreCase(zone)) {
-            // In a full implementation, we'd add an 'findAllOpen' method to the service
-            // For now, we reuse the zone filtering or return mock-like results
-            return ResponseEntity.ok(logisticsService.getAvailableSlotsForZone(zone));
+            return ResponseEntity.ok(deliverySlotRepository.findBySlotStatus(DeliverySlot.SlotStatus.OPEN));
         }
         return ResponseEntity.ok(logisticsService.getAvailableSlotsForZone(zone));
     }

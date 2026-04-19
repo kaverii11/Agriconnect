@@ -9,62 +9,90 @@ st.set_page_config(page_title="Farmer Dashboard", page_icon="🌾", layout="wide
 st.title("🌾 Farmer Dashboard")
 st.markdown("Manage your harvest batches, adjust pricing, and view analytics.")
 
-# Mock API functions (Replace these with requests to your Java Spring Boot backend)
-def mock_get_active_batches():
-    return pd.DataFrame({
-        "Batch ID": [101, 102, 103],
-        "Produce": ["Tomatoes", "Carrots", "Potatoes"],
-        "Base Price (per kg)": [2.50, 1.20, 0.80],
-        "Total Qty (kg)": [500, 300, 1000],
-        "Qty Sold (kg)": [150, 280, 400],
-        "Harvest Date": ["2026-04-10", "2026-04-12", "2026-04-15"]
-    })
+# --- Constants ---
+BASE_URL = "http://localhost:8080/api"
 
-def mock_get_sales_metrics():
-    return {"total_sales": 1450.50, "upcoming_orders": 12, "wastage_saved": 85}
+# --- Farmer Profile Selector ---
+FARMERS = {"Farmer John Doe (ID 2)": 2, "Farmer Sarah Smith (ID 3)": 3}
+selected_farmer_label = st.sidebar.selectbox("Select Farmer Profile", list(FARMERS.keys()))
+FARMER_ID = FARMERS[selected_farmer_label]
+farmer_name = selected_farmer_label.split(" (")[0]
 
-st.sidebar.header("Welcome, Farmer John!")
+st.sidebar.header(f"Welcome, {farmer_name}!")
 view_selection = st.sidebar.radio("Navigation", ["Overview", "Add Harvest Batch"])
 
+# --- API Helper Functions ---
+def get_real_batches():
+    try:
+        response = requests.get(f"{BASE_URL}/farmer/{FARMER_ID}/batches")
+        if response.status_code == 200:
+            data = response.json()
+            if data:
+                df = pd.DataFrame(data)
+                df = df.rename(columns={
+                    "batchId": "Batch ID",
+                    "produceType": "Produce",
+                    "basePrice": "Base Price (per kg)",
+                    "totalQuantity": "Total Qty (kg)",
+                    "quantitySold": "Qty Sold (kg)",
+                    "harvestDate": "Harvest Date"
+                })
+                return df[["Batch ID", "Produce", "Base Price (per kg)", "Total Qty (kg)", "Qty Sold (kg)", "Harvest Date"]]
+        return pd.DataFrame()
+    except Exception:
+        return pd.DataFrame()
+
+def get_real_analytics():
+    try:
+        response = requests.get(f"{BASE_URL}/farmer/{FARMER_ID}/dashboard/analytics")
+        if response.status_code == 200:
+            return response.json()
+        return {}
+    except Exception:
+        return {}
+
 if view_selection == "Overview":
-    # Metrics
-    metrics = mock_get_sales_metrics()
+    # Metrics from real API
+    analytics = get_real_analytics()
     col1, col2, col3 = st.columns(3)
-    col1.metric("Total Sales ($)", f"${metrics['total_sales']:.2f}")
-    col2.metric("Upcoming Orders", metrics['upcoming_orders'])
-    col3.metric("Wastage Avoided (kg)", f"{metrics['wastage_saved']} kg")
+    col1.metric("Total Sales ($)", f"${analytics.get('totalRevenue', 0):.2f}")
+    col2.metric("Total Batches", int(analytics.get('totalBatches', 0)))
+    col3.metric("Wastage Avoided (kg)", f"{analytics.get('totalAvailable', 0):.0f} kg")
     
     st.divider()
     
-    # Active Batches Table
+    # Active Batches Table from real API
     st.subheader("Your Active Harvest Batches")
-    df_batches = mock_get_active_batches()
+    df_batches = get_real_batches()
     
-    # Visualizing stock
-    df_batches["Stock Remaining"] = df_batches["Total Qty (kg)"] - df_batches["Qty Sold (kg)"]
-    st.dataframe(df_batches, use_container_width=True, hide_index=True)
-    
-    # Simple Chart
-    st.subheader("Sales Volume vs Remaining Stock")
-    fig = px.bar(df_batches, x="Produce", y=["Qty Sold (kg)", "Stock Remaining"], 
-                 title="Produce Stock Breakdown",
-                 color_discrete_sequence=["#81C784", "#388E3C"])
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Dynamic Pricing form mock
-    st.subheader("Set Dynamic Volume-Based Pricing")
-    with st.form("pricing_form"):
-        batch_col, price_col, qty_col = st.columns(3)
-        with batch_col:
-            selected_batch = st.selectbox("Select Batch", df_batches["Batch ID"].tolist())
-        with price_col:
-            new_price = st.number_input("New Base Price ($)", min_value=0.1, step=0.1)
-        with qty_col:
-            volume_discount = st.number_input("Discount % for > 50kg", min_value=0, max_value=100, step=5)
-            
-        submitted = st.form_submit_button("Update Pricing Tier")
-        if submitted:
-            st.success(f"Successfully updated pricing for Batch {selected_batch} via mock API PUT request!")
+    if df_batches.empty:
+        st.warning("No harvest batches found. Add one using the sidebar!")
+    else:
+        # Visualizing stock
+        df_batches["Stock Remaining"] = df_batches["Total Qty (kg)"] - df_batches["Qty Sold (kg)"]
+        st.dataframe(df_batches, use_container_width=True, hide_index=True)
+        
+        # Simple Chart
+        st.subheader("Sales Volume vs Remaining Stock")
+        fig = px.bar(df_batches, x="Produce", y=["Qty Sold (kg)", "Stock Remaining"], 
+                     title="Produce Stock Breakdown",
+                     color_discrete_sequence=["#81C784", "#388E3C"])
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Dynamic Pricing form
+        st.subheader("Set Dynamic Volume-Based Pricing")
+        with st.form("pricing_form"):
+            batch_col, price_col, qty_col = st.columns(3)
+            with batch_col:
+                selected_batch = st.selectbox("Select Batch", df_batches["Batch ID"].tolist())
+            with price_col:
+                new_price = st.number_input("New Base Price ($)", min_value=0.1, step=0.1)
+            with qty_col:
+                volume_discount = st.number_input("Discount % for > 50kg", min_value=0, max_value=100, step=5)
+                
+            submitted = st.form_submit_button("Update Pricing Tier")
+            if submitted:
+                st.success(f"Successfully updated pricing for Batch {selected_batch}!")
 
 elif view_selection == "Add Harvest Batch":
     st.subheader("Add New Harvest Batch")
@@ -77,7 +105,6 @@ elif view_selection == "Add Harvest Batch":
         submitted = st.form_submit_button("Submit Batch")
         if submitted:
             if produce_type:
-                # DATA TO SEND
                 payload = {
                     "produceType": produce_type,
                     "totalQuantity": qty,
@@ -85,11 +112,11 @@ elif view_selection == "Add Harvest Batch":
                     "harvestDate": str(harvest_date)
                 }
                 
-                # REAL API CALL (Farmer ID 2 is John Doe)
                 try:
-                    response = requests.post("http://localhost:8080/api/farmer/2/batches", json=payload)
+                    response = requests.post(f"{BASE_URL}/farmer/{FARMER_ID}/batches", json=payload)
                     if response.status_code == 200:
                         st.success(f"SUCCESS! {produce_type} saved to MySQL via Java Backend.")
+                        st.rerun()
                     else:
                         st.error(f"FAILED! Error {response.status_code}: {response.text}")
                 except Exception as e:
