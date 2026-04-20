@@ -18,6 +18,8 @@ import java.util.List;
  * IConsumerDeliveryService interface, not the full
  * ILogisticsAdminService, satisfying Interface Segregation.
  */
+import java.math.BigDecimal;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -32,6 +34,9 @@ public class Consumer extends User {
 
     @Column(name = "phone_number")
     private String phoneNumber;
+
+    @Column(name = "wallet_balance", nullable = false)
+    private BigDecimal walletBalance = BigDecimal.ZERO;
 
     /**
      * JPA: @ManyToMany — a Consumer can join many GroupOrders,
