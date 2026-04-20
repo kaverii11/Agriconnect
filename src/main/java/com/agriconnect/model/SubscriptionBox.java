@@ -36,6 +36,26 @@ public abstract class SubscriptionBox {
     @Column(name = "price_per_cycle")
     private Double pricePerCycle;
 
+    /** Pickup area — e.g. "City Center", "Suburbs", "Downtown" */
+    @Column(name = "pickup_area")
+    private String pickupArea;
+
+    /** Preferred pickup time slot — e.g. "MORNING", "AFTERNOON", "EVENING" */
+    @Column(name = "pickup_time_slot")
+    private String pickupTimeSlot;
+
+    /** If set, subscription is paused until this date */
+    @Column(name = "paused_until")
+    private LocalDate pausedUntil;
+
+    /** Reason for pausing subscription */
+    @Column(name = "paused_reason")
+    private String pausedReason;
+
+    /** Running count of deliveries completed */
+    @Column(name = "total_deliveries_completed")
+    private Integer totalDeliveriesCompleted = 0;
+
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "consumer_id")
@@ -44,8 +64,14 @@ public abstract class SubscriptionBox {
     /** Factory method — subclasses define what items the box contains. */
     public abstract String getBoxDescription();
 
+    /** Returns true if the subscription is currently paused. */
+    public boolean isPaused() {
+        return pausedUntil != null && !LocalDate.now().isAfter(pausedUntil);
+    }
+
     /** Advance the next delivery date by one cycle. */
     public void scheduleNextDelivery() {
+        totalDeliveriesCompleted = (totalDeliveriesCompleted == null ? 0 : totalDeliveriesCompleted) + 1;
         if ("WEEKLY".equals(frequency)) {
             nextDeliveryDate = nextDeliveryDate.plusWeeks(1);
         } else if ("BIWEEKLY".equals(frequency)) {
