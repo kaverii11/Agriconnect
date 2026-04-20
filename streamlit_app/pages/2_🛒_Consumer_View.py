@@ -68,8 +68,32 @@ def get_logistics_slots():
     except Exception:
         return []
 
+def get_wallet_balance():
+    try:
+        response = requests.get(f"{BASE_URL}/consumer/{CONSUMER_ID}/wallet")
+        if response.status_code == 200:
+            return float(response.text)
+        return 0.0
+    except Exception:
+        return 0.0
+
 # --- Navigation ---
 menu = st.sidebar.radio("Navigation", ["Marketplace & Community Cart", "Weekly SubscriptionBox", "Checkout & Slots"])
+
+st.sidebar.divider()
+st.sidebar.subheader("💳 Wallet")
+wallet_balance = get_wallet_balance()
+st.sidebar.metric("Balance", f"${wallet_balance:.2f}")
+
+with st.sidebar.expander("Top-up Wallet"):
+    topup_amt = st.number_input("Amount ($)", min_value=5.0, step=5.0)
+    if st.button("Add Funds"):
+        res = requests.post(f"{BASE_URL}/consumer/{CONSUMER_ID}/wallet/topup", params={"amount": topup_amt})
+        if res.status_code == 200:
+            st.success("Successfully added funds!")
+            st.rerun()
+        else:
+            st.error("Top-up failed.")
 
 if menu == "Marketplace & Community Cart":
     st.subheader("Available Produce & Community Pools")
@@ -158,9 +182,23 @@ elif menu == "Weekly SubscriptionBox":
     elif status and active_sub:
         st.success(f"Your **{active_sub.get('boxType')}** subscription is ACTIVE.")
         st.write(f"**Frequency:** {active_sub.get('frequency')}")
-        st.write(f"**Price per cycle:** ${active_sub.get('pricPerCycle', active_sub.get('priceCycle', 0))}")
+        
+        # Fixed typo: pricPerCycle -> pricePerCycle
+        sub_price = active_sub.get('pricePerCycle', active_sub.get('priceCycle', 0))
+        st.write(f"**Price per cycle:** ${sub_price:.2f}")
+        
         pref = active_sub.get('veggiePreference') or active_sub.get('fruitPreference') or 'None set'
         st.write(f"**Preferences:** {pref}")
+        
+        # Check wallet balance adequacy for subscriptions
+        if wallet_balance < sub_price:
+            st.error(f"⚠️ Insufficient Wallet Balance (${wallet_balance:.2f}) for next renewal (${sub_price:.2f}).")
+            if st.button("Send Email: Insufficient Wallet Balance (Mock)", help="Triggers backend to mock an email notification"):
+                notify_res = requests.post(f"{BASE_URL}/consumer/{CONSUMER_ID}/wallet/notify-insufficient")
+                if notify_res.status_code == 200:
+                    st.success("Email notification sent successfully!")
+                else:
+                    st.error("Failed to send notification.")
         
         if st.button("Cancel Subscription", type="secondary"):
             res = requests.delete(f"{BASE_URL}/subscription/{active_sub.get('subscriptionId')}")
@@ -215,7 +253,12 @@ elif menu == "Checkout & Slots":
             
             st.divider()
             st.markdown("### 3. Payment Method")
-            pay_method = st.radio("Payment Type", ["UPI", "Credit Card", "Wallet"], horizontal=True)
+            pay_method = st.radio("Payment Type", ["Wallet", "UPI", "Credit Card"], horizontal=True)
+            if pay_method == "Wallet":
+                st.caption(f"Current Wallet Balance: **${wallet_balance:.2f}**")
+                if wallet_balance < estimated_amount:
+                    st.error("Insufficient wallet balance for this order. Please top-up via sidebar.")
+            
             
             if st.button("Confirm Order & Book Delivery", type="primary"):
                 payload = {

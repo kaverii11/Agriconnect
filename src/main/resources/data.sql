@@ -99,4 +99,4 @@ VALUES (5, '2026-05-04 16:30:00', 20, 0, 'East Ridge', 'OPEN', 1);
 
 -- 8. Create a sample subscription for Alice
 INSERT INTO subscription_boxes (subscription_id, box_type, frequency, active, consumer_id, next_delivery_date, price_per_cycle, veggie_preference, fruit_preference)
-VALUES (1, 'VeggieBox', 'WEEKLY', true, 4, '2026-04-26', 15.99, 'No cilantro, local only', null);
+VALUES (1, 'VEGGIE_BOX', 'WEEKLY', true, 4, '2026-04-26', 15.99, 'No cilantro, local only', null);

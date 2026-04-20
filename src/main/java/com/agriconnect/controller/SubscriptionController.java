@@ -6,34 +6,35 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * ============================================================
  * PART 3: CONTROLLER LAYER - Subscription Management
  * ============================================================
- *
- * MVC ROLE: Controller
- * Handles subscription lifecycle operations.
- *
- * DESIGN PATTERN: FACTORY METHOD (Module 4 Integration)
- * - The request specifies "VEGGIE" or "FRUIT".
- * - The controller delegates to the service, which uses the factory
- *   to instantiate the correct subclass of SubscriptionBox.
- * - This allows the API to be generic and easily extendable for new types.
  */
 @RestController
 @RequestMapping("/api/subscription")
 public class SubscriptionController {
 
     private final SubscriptionService subscriptionService;
+    private final jakarta.persistence.EntityManager entityManager;
 
-    public SubscriptionController(SubscriptionService subscriptionService) {
+    public SubscriptionController(SubscriptionService subscriptionService, jakarta.persistence.EntityManager entityManager) {
         this.subscriptionService = subscriptionService;
+        this.entityManager = entityManager;
+    }
+
+    @PostMapping("/fix-db")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<String> fixDB() {
+        entityManager.createNativeQuery("UPDATE subscription_boxes SET box_type='VEGGIE_BOX' WHERE box_type='VeggieBox'").executeUpdate();
+        return ResponseEntity.ok("FIXED DISCRIMINATOR VALUES IN DB!");
     }
 
     /**
      * Create a new subscription box.
-     * Demonstrates Factory Method support.
      */
     @PostMapping("/{consumerId}/create")
     public ResponseEntity<SubscriptionBox> createBox(@PathVariable Long consumerId,
@@ -48,8 +49,36 @@ public class SubscriptionController {
      * List consumer's active subscriptions.
      */
     @GetMapping("/{consumerId}/my-boxes")
-    public ResponseEntity<List<SubscriptionBox>> listMyBoxes(@PathVariable Long consumerId) {
-        return ResponseEntity.ok(subscriptionService.getSubscriptionsByConsumer(consumerId));
+    public ResponseEntity<?> listMyBoxes(@PathVariable Long consumerId) {
+        try {
+            List<SubscriptionBox> boxes = subscriptionService.getSubscriptionsByConsumer(consumerId);
+            List<java.util.Map<String, Object>> result = boxes.stream().map(box -> {
+                SubscriptionBox actualBox = (SubscriptionBox) org.hibernate.Hibernate.unproxy(box);
+                String boxType = actualBox instanceof com.agriconnect.model.VeggieBox ? "VEGGIE" : "FRUIT";
+                String pref = "";
+                if (boxType.equals("VEGGIE")) {
+                    pref = ((com.agriconnect.model.VeggieBox) actualBox).getVeggiePreference();
+                } else {
+                    pref = ((com.agriconnect.model.FruitBox) actualBox).getFruitPreference();
+                }
+                java.util.Map<String, Object> map = new java.util.HashMap<>();
+                map.put("subscriptionId", actualBox.getSubscriptionId());
+                map.put("frequency", actualBox.getFrequency());
+                map.put("nextDeliveryDate", actualBox.getNextDeliveryDate());
+                map.put("active", actualBox.isActive());
+                map.put("pricePerCycle", actualBox.getPricePerCycle());
+                map.put("boxType", boxType);
+                map.put("veggiePreference", pref);
+                map.put("fruitPreference", pref);
+                map.put("boxDescription", actualBox.getBoxDescription());
+                return map;
+            }).collect(Collectors.toList());
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            java.io.StringWriter sw = new java.io.StringWriter();
+            e.printStackTrace(new java.io.PrintWriter(sw));
+            return ResponseEntity.status(500).body(sw.toString());
+        }
     }
 
     /**

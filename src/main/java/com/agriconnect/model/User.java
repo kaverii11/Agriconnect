@@ -3,6 +3,7 @@ package com.agriconnect.model;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
@@ -36,6 +37,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "users")
 @Inheritance(strategy = InheritanceType.JOINED)
 @DiscriminatorColumn(name = "user_type", discriminatorType = DiscriminatorType.STRING)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public abstract class User {
 
     @Id

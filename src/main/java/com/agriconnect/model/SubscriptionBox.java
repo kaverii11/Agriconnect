@@ -1,6 +1,7 @@
 package com.agriconnect.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -8,21 +9,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
-/**
- * ============================================================
- * PART 1: MODEL - SubscriptionBox
- * ============================================================
- *
- * DESIGN PATTERN: Factory Method (Module 4)
- *   SubscriptionBox is the product created by SubscriptionFactory.
- *   Subclasses (VeggieBox, FruitBox) extend this entity.
- *
- * DESIGN PRINCIPLE: DIP
- *   The scheduler for renewals depends on INotificationService
- *   (abstraction), not on EmailNotificationService directly.
- *
- * JPA: @ManyToOne → Each subscription belongs to one Consumer.
- */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -30,6 +16,7 @@ import java.time.LocalDate;
 @Table(name = "subscription_boxes")
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
 @DiscriminatorColumn(name = "box_type")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public abstract class SubscriptionBox {
 
     @Id
