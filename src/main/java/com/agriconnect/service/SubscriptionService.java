@@ -16,27 +16,10 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * ============================================================
- * SERVICE LAYER - Module 4: Subscriptions & Analytics
- * ============================================================
+ * SERVICE LAYER - Subscription Management
  *
- * MVC ROLE: Business logic layer for subscription management.
- *
- * DESIGN PATTERN: Factory Method (used here as Client)
- *   SubscriptionService holds a reference to SubscriptionFactory
- *   (the interface). It calls factory.createSubscription(...)
- *   without knowing the concrete class being instantiated.
- *   Swapping AgriBoxFactory for another factory requires ZERO
- *   changes to this class.
- *
- * DESIGN PRINCIPLE: DIP (Dependency Inversion Principle)
- *   SubscriptionSchedulerService (high-level) depends on:
- *     → INotificationService  (abstraction)     ← injected
- *     → SubscriptionFactory   (abstraction)     ← injected
- *   It does NOT depend on:
- *     ✗ EmailNotificationService (concrete)
- *     ✗ AgriBoxFactory           (concrete)
- *   Both high and low-level modules depend on the abstraction. ✅
+ * DESIGN PATTERN: Factory Method — subscriptionFactory.createSubscription(...)
+ * DESIGN PRINCIPLE: DIP — depends on INotificationService abstraction
  */
 @Service
 @Transactional
@@ -44,20 +27,8 @@ public class SubscriptionService {
 
     private static final Logger log = LoggerFactory.getLogger(SubscriptionService.class);
 
-    /**
-     * DIP: This field is typed to the INTERFACE, not the
-     * concrete EmailNotificationService. The high-level service
-     * doesn't know (or care) how notifications are delivered.
-     */
-    private final INotificationService     notificationService; // DIP ✅
-
-    /**
-     * DIP: Typed to SubscriptionFactory interface.
-     * AgriBoxFactory is the concrete implementation injected
-     * by Spring, but SubscriptionService never references it.
-     */
-    private final SubscriptionFactory      subscriptionFactory; // DIP + Factory ✅
-
+    private final INotificationService     notificationService;
+    private final SubscriptionFactory      subscriptionFactory;
     private final SubscriptionBoxRepository subscriptionBoxRepository;
     private final ConsumerRepository        consumerRepository;
 
@@ -65,51 +36,113 @@ public class SubscriptionService {
                                SubscriptionFactory subscriptionFactory,
                                SubscriptionBoxRepository subscriptionBoxRepository,
                                ConsumerRepository consumerRepository) {
-        // DIP satisfied: receiving abstractions, not concretions
-        this.notificationService     = notificationService;
-        this.subscriptionFactory     = subscriptionFactory;
+        this.notificationService      = notificationService;
+        this.subscriptionFactory      = subscriptionFactory;
         this.subscriptionBoxRepository = subscriptionBoxRepository;
-        this.consumerRepository       = consumerRepository;
+        this.consumerRepository        = consumerRepository;
     }
 
     // -------------------------------------------------------
-    // WEEKLY BOX SUBSCRIPTION (Major Feature — Module 4)
+    // CREATE SUBSCRIPTION
     // -------------------------------------------------------
 
-    /**
-     * Creates a new subscription for a consumer.
-     *
-     * FACTORY METHOD PATTERN:
-     *   subscriptionFactory.createSubscription(...) is called here.
-     *   The factory decides whether to instantiate VeggieBox or FruitBox.
-     *   SubscriptionService is completely decoupled from concrete types.
-     *
-     * @param consumerId  the subscribing consumer
-     * @param boxType     "VEGGIE" or "FRUIT"
-     * @param frequency   "WEEKLY", "BIWEEKLY", or "MONTHLY"
-     * @param preference  consumer's preference string
-     * @return            persisted SubscriptionBox
-     */
     public SubscriptionBox subscribe(Long consumerId, String boxType,
                                      String frequency, String preference) {
+        return subscribe(consumerId, boxType, frequency, preference, null, null);
+    }
+
+    public SubscriptionBox subscribe(Long consumerId, String boxType, String frequency,
+                                     String preference, String pickupArea, String pickupTimeSlot) {
         Consumer consumer = consumerRepository.findById(consumerId)
             .orElseThrow(() -> new IllegalArgumentException("Consumer not found: " + consumerId));
 
-        // FACTORY METHOD: Delegate object creation to the factory interface ✅
         SubscriptionBox box = subscriptionFactory.createSubscription(
             boxType, consumer, frequency, preference);
 
+        if (pickupArea != null && !pickupArea.isBlank()) {
+            box.setPickupArea(pickupArea);
+        }
+        if (pickupTimeSlot != null && !pickupTimeSlot.isBlank()) {
+            box.setPickupTimeSlot(pickupTimeSlot);
+        }
+
         SubscriptionBox saved = subscriptionBoxRepository.save(box);
 
-        // DIP: Use abstraction to notify — not EmailNotificationService directly ✅
         notificationService.sendNotification(
             consumer.getEmail(),
             "AgriConnect — Subscription Confirmed! 🥦",
             "Hello " + consumer.getName() + "! Your " + saved.getBoxDescription() +
-            " subscription is active. First delivery: " + saved.getNextDeliveryDate()
+            " subscription is active. First delivery: " + saved.getNextDeliveryDate() +
+            (pickupArea != null ? ". Pickup: " + pickupArea + " (" + pickupTimeSlot + ")" : "")
         );
 
         return saved;
+    }
+
+    // -------------------------------------------------------
+    // MANAGE SUBSCRIPTION
+    // -------------------------------------------------------
+
+    /** Update pickup area and time slot for an existing subscription. */
+    public SubscriptionBox updatePickupPreferences(Long subscriptionId,
+                                                   String pickupArea,
+                                                   String pickupTimeSlot) {
+        SubscriptionBox box = subscriptionBoxRepository.findById(subscriptionId)
+            .orElseThrow(() -> new IllegalArgumentException("Subscription not found: " + subscriptionId));
+        box.setPickupArea(pickupArea);
+        box.setPickupTimeSlot(pickupTimeSlot);
+
+        notificationService.sendNotification(
+            box.getConsumer().getEmail(),
+            "AgriConnect — Pickup Preferences Updated",
+            "Your subscription pickup has been updated to: " + pickupArea +
+            " at " + pickupTimeSlot + " slot."
+        );
+
+        return subscriptionBoxRepository.save(box);
+    }
+
+    /**
+     * Pause a subscription until a given date.
+     * Deliveries within the paused window will be skipped by the scheduler.
+     */
+    public SubscriptionBox pauseSubscription(Long subscriptionId,
+                                             LocalDate pauseUntil,
+                                             String reason) {
+        SubscriptionBox box = subscriptionBoxRepository.findById(subscriptionId)
+            .orElseThrow(() -> new IllegalArgumentException("Subscription not found: " + subscriptionId));
+
+        box.setPausedUntil(pauseUntil);
+        box.setPausedReason(reason != null ? reason : "Paused by user");
+
+        notificationService.sendNotification(
+            box.getConsumer().getEmail(),
+            "AgriConnect — Subscription Paused",
+            "Your subscription is paused until " + pauseUntil +
+            ". Reason: " + box.getPausedReason() + ". It will resume automatically."
+        );
+
+        log.info("[PAUSE] Subscription #{} paused until {} — Reason: {}", subscriptionId, pauseUntil, reason);
+        return subscriptionBoxRepository.save(box);
+    }
+
+    /** Resume a paused subscription immediately. */
+    public SubscriptionBox resumeSubscription(Long subscriptionId) {
+        SubscriptionBox box = subscriptionBoxRepository.findById(subscriptionId)
+            .orElseThrow(() -> new IllegalArgumentException("Subscription not found: " + subscriptionId));
+
+        box.setPausedUntil(null);
+        box.setPausedReason(null);
+
+        notificationService.sendNotification(
+            box.getConsumer().getEmail(),
+            "AgriConnect — Subscription Resumed 🥦",
+            "Your " + box.getBoxDescription() + " subscription has been resumed. " +
+            "Next delivery: " + box.getNextDeliveryDate()
+        );
+
+        log.info("[RESUME] Subscription #{} resumed", subscriptionId);
+        return subscriptionBoxRepository.save(box);
     }
 
     /** Cancel a subscription gracefully. */
@@ -118,11 +151,11 @@ public class SubscriptionService {
             .orElseThrow(() -> new IllegalArgumentException("Subscription not found: " + subscriptionId));
         box.setActive(false);
 
-        // DIP: Notification via abstraction ✅
         notificationService.sendNotification(
             box.getConsumer().getEmail(),
             "AgriConnect — Subscription Cancelled",
-            "Your subscription #" + subscriptionId + " has been cancelled."
+            "Your subscription #" + subscriptionId + " has been cancelled. " +
+            "Total deliveries completed: " + box.getTotalDeliveriesCompleted()
         );
 
         return subscriptionBoxRepository.save(box);
@@ -135,20 +168,15 @@ public class SubscriptionService {
     }
 
     // -------------------------------------------------------
-    // SUBSCRIPTION SCHEDULER (Automated renewal + notifications)
+    // SUBSCRIPTION SCHEDULER
     // -------------------------------------------------------
 
     /**
      * SCHEDULED TASK — runs every day at 8:00 AM.
-     * Processes all subscriptions due today and advances them.
-     *
-     * DIP IN ACTION:
-     *   notificationService is the INotificationService abstraction.
-     *   Whether this sends an email, SMS, or push notification is
-     *   determined entirely by which bean Spring injects (@Primary).
-     *   This scheduler method is completely agnostic to delivery channel.
+     * Skips paused subscriptions automatically.
+     * DIP: notificationService is the INotificationService abstraction.
      */
-    @Scheduled(cron = "0 0 8 * * ?") // Every day at 08:00
+    @Scheduled(cron = "0 0 8 * * ?")
     public void processDailyRenewals() {
         List<SubscriptionBox> dueToday =
             subscriptionBoxRepository.findByActiveTrueAndNextDeliveryDate(LocalDate.now());
@@ -156,17 +184,26 @@ public class SubscriptionService {
         log.info("[SCHEDULER] Processing {} subscription renewals for {}", dueToday.size(), LocalDate.now());
 
         for (SubscriptionBox box : dueToday) {
-            // Advance delivery date to next cycle
+            // Skip paused subscriptions
+            if (box.isPaused()) {
+                log.info("[SCHEDULER] Skipping subscription #{} — paused until {}", box.getSubscriptionId(), box.getPausedUntil());
+                continue;
+            }
+
             box.scheduleNextDelivery();
             subscriptionBoxRepository.save(box);
 
-            // DIP: Delegate notification to the abstraction ✅
+            String pickupInfo = (box.getPickupArea() != null)
+                ? " Pickup: " + box.getPickupArea() + " — " + box.getPickupTimeSlot() + " slot."
+                : " Door delivery scheduled.";
+
             notificationService.sendNotification(
                 box.getConsumer().getEmail(),
                 "AgriConnect — Your Box Ships Today! 📦",
                 "Hello " + box.getConsumer().getName() + "! " +
-                box.getBoxDescription() + " is being prepared for delivery. " +
-                "Next scheduled delivery: " + box.getNextDeliveryDate()
+                box.getBoxDescription() + " is being prepared for delivery." +
+                pickupInfo + " Next delivery: " + box.getNextDeliveryDate() +
+                ". Deliveries completed: " + box.getTotalDeliveriesCompleted()
             );
         }
     }
