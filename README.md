@@ -11,8 +11,10 @@ AgriConnect is a comprehensive digital marketplace bridging the gap between loca
 ## 🚀 Quick Setup & Run
 
 ### 1. Spring Boot Backend
-Ensure you have **Java 17**, **Maven**, and **MySQL** installed. Update your MySQL password in `src/main/resources/application.properties`.
+Ensure you have **Java 17**, **Maven**, and **MySQL** installed. The database password is read from the `DB_PASSWORD` environment variable (it is never stored in the repo).
 ```bash
+export DB_PASSWORD=your_mysql_password   # optional: export DB_USERNAME=root
+./setup_db.sh                            # creates agriconnect_db
 mvn clean install
 mvn spring-boot:run
 ```
